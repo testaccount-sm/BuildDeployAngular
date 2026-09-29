@@ -1,0 +1,64 @@
+name: Reusable Build Deploy Angular
+
+on:
+  workflow_call:
+    inputs:
+      pythonVersion:
+        required: true
+        type: string
+      nodejsVersion:
+        required: true
+        type: string
+
+jobs:
+  build-angular:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ci-${{github.workflow}}
+      cancel-in-progress: true 
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Build Environment
+        id: setup-build-env
+        uses: ./.github/actions/SetupBuildEnvironment
+        with:
+          pythonVersion: ${{inputs.pythonVersion}}
+          nodejsVersion: ${{inputs.nodejsVersion}}
+
+      - name: Outputs from action
+        run: |
+          echo "Repository owner = ${{steps.setup-build-env.outputs.repoOwner}}"
+          echo "Default Branch = ${{steps.setup-build-env.outputs.defaultBranch}}"
+          echo "CICD Key = ${{steps.setup-build-env.outputs.cicdKey}}"
+        
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build
+
+      - name: Sleep
+        run: sleep 10
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name : build-artifact
+          path : dist        
+ 
+  deploy-angular:
+    runs-on: ubuntu-latest    
+    needs: build-angular
+    
+    steps:
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name : build-artifact
+          path : artifact          
+
+      - name: Display structure of downloaded files
+        run: ls -R artifact 
